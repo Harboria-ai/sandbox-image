@@ -168,7 +168,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
-      contents: write # Create the immutable GitHub release.
+      contents: write # Create the tag of a rebuild and the immutable GitHub release.
       packages: write # Push the tested OCI artifacts to GHCR.
       id-token: write # Sign the manifest with Sigstore OIDC.
     steps:
@@ -211,6 +211,14 @@ jobs:
           cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             --certificate-identity-regexp '^https://github.com/Harboria-ai/sandbox-image/.github/workflows/execd.yml@refs/(heads/main|tags/execd-v[0-9]+\.[0-9]+\.[0-9]+)$' \
             "$IMAGE@$digest"
+          if [[ "$VERSION" == *-rebuild.* ]]; then
+            # A rebuild creates its tag on the commit it built, before the final image tag.
+            # A tag of that name that already exists stops the run, wherever it points: no
+            # rebuild reuses a tag, and every tag is immutable.
+            gh api --method POST repos/Harboria-ai/sandbox-image/git/refs \
+              -f ref="refs/tags/execd-v$VERSION" -f sha="$GITHUB_SHA" >/dev/null ||
+              { echo "The tag execd-v$VERSION could not be created on $GITHUB_SHA: the final image is not published." >&2; exit 1; }
+          fi
           docker buildx imagetools create --tag "$target" "$IMAGE@$digest"
           printf '{"image":"%s","version":"%s","digest":"%s"}\n' "$IMAGE" "execd-$VERSION" "$digest" > image.json
           for arch in amd64 arm64; do
@@ -222,7 +230,7 @@ jobs:
           gh release create "execd-v$VERSION" image.json \
             vulnerabilities-amd64.json vulnerabilities-arm64.json \
             sbom-amd64.spdx.json sbom-arm64.spdx.json "${release_flags[@]}" \
-            --repo Harboria-ai/sandbox-image --target "$GITHUB_SHA" \
+            --repo Harboria-ai/sandbox-image --verify-tag \
             --title "Execd $VERSION" --notes "Native amd64 and arm64 execd and workspace migration checks passed. Image: $IMAGE@$digest. SPDX SBOMs and vulnerability reports are attached. The image carries BuildKit provenance and SBOM attestations and is signed with Sigstore."
           printf 'Published %s@%s\n' "$IMAGE" "$digest" >> "$GITHUB_STEP_SUMMARY"
       - name: Record the completed publication for Slack

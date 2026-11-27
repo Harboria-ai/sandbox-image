@@ -87,9 +87,16 @@ pinned upstream source. Platform and Shipyard consume their immutable GHCR refer
 - Use patch versions for compatible fixes and upgrades, minor versions for
   added capabilities, and major versions for incompatible consumer changes.
   Cut release tags only on reviewed commits already present in `main`.
-- Never move a published Git tag or overwrite a GHCR version tag. For a
-  rebuild of the same pinned version, use the workflow on `main`; it creates
-  a unique `-rebuild.DATE.RUN.ATTEMPT` prerelease. Do not reuse an old tag.
+- Only an owner of the organization creates a release tag (`vX.Y.Z`,
+  `execd-vX.Y.Z`): a ruleset refuses it to everybody else. The rebuild tags
+  (`v*-rebuild.*`, `execd-v*-rebuild.*`) are out of that rule: the workflow
+  creates them.
+- Nobody moves or deletes a Git tag, an owner included: every tag is
+  immutable. Never overwrite a GHCR version tag either. For a rebuild of the
+  same pinned version, use the workflow on `main`. It creates the unique tag
+  `-rebuild.DATE.RUN.ATTEMPT` on the commit it built, before it publishes the
+  final image, and stops if that tag already exists. Then it publishes the
+  prerelease on that tag. Do not reuse an old tag.
 - Publish the exact OCI artifacts tested by the architecture jobs. Verify
   the signed release and anonymous pulls on both architectures before
   updating downstream references. Consumers should pin a version and digest.
