@@ -91,12 +91,17 @@ pinned upstream source. Platform and Shipyard consume their immutable GHCR refer
   `execd-vX.Y.Z`): a ruleset refuses it to everybody else. The rebuild tags
   (`v*-rebuild.*`, `execd-v*-rebuild.*`) are out of that rule: the workflow
   creates them.
-- Nobody moves or deletes a Git tag, an owner included: every tag is
-  immutable. Never overwrite a GHCR version tag either. For a rebuild of the
-  same pinned version, use the workflow on `main`. It creates the unique tag
-  `-rebuild.DATE.RUN.ATTEMPT` on the commit it built, before it publishes the
-  final image, and stops if that tag already exists. Then it publishes the
-  prerelease on that tag. Do not reuse an old tag.
+- Nobody moves or deletes a `v*` or `execd-v*` tag, a rebuild tag included,
+  an owner included: those tags are immutable. Never overwrite a GHCR version
+  tag either. For a rebuild of the same pinned version, use the workflow on
+  `main`. It creates the unique tag `-rebuild.DATE.RUN.ATTEMPT` on the commit
+  it built, before it publishes the final image, and stops if that tag already
+  exists. Then it publishes the prerelease on that tag. Do not reuse an old tag.
+- If the publish job of a rebuild fails after it created the tag, the tag
+  stays, and it cannot be deleted. It has no final image and no release, or
+  the final image without the release. "Re-run failed jobs" stops on that
+  tag: it keeps the version of the first run. Start a new rebuild from `main`
+  instead: it gets a new version and a new tag.
 - Publish the exact OCI artifacts tested by the architecture jobs. Verify
   the signed release and anonymous pulls on both architectures before
   updating downstream references. Consumers should pin a version and digest.
